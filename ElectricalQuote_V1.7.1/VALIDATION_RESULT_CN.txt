@@ -1,0 +1,18 @@
+﻿ElectricalQuote V1.7.1 验证结果
+
+执行命令：在source目录运行 python -u verify_v171.py --full
+结果：退出码0，V1.7.1 CHECKS PASSED (including real PDF OCR)
+
+通过：
+- 52项针对性回归：计数/CSV/XLSX/缓存7项，几何与定位15项，识别14项，无界面UI行为16项。
+- 鑫永联7页分柜44个，安徽5页分柜33个，与原基线一致。
+- PP1/PP3/AP4实际OCR馈线分别为11/20/21；AP4位号W1-W21、W16规格和防雷T2/Imax80检查通过。
+- 安徽1ACP1四方向0/90/180/270：4个200A/3P塑壳、4个90kW变频器、1个630A/3P主开断言通过。
+- 单独1-4AP3示例14条馈线通过；CT无印刷数量证据时保持数量未知。
+- Excel重新读取验证未知数量留空、候选/确认分列、已确认汇总与文字单元格；CSV往返检查通过。
+- Python源码语法编译通过。
+
+测试环境：Linux，Python3.12.14，Tesseract5.5.0，PyMuPDF1.26.6，Pillow12.3.0，numpy2.3.5，opencv4.14.0，pytesseract0.3.13，openpyxl3.1.5。
+原始测试输出见VALIDATION_LOG.txt。历史校验脚本里的“existing Excel writer retained”是旧提示，Excel实际已改为openpyxl并由新增回归独立验证。
+
+未执行：Windows桌面实际操作、Windows EXE构建。尚不能保证任意图纸/所有类别都自动识别正确；原图核对仍是必要步骤。

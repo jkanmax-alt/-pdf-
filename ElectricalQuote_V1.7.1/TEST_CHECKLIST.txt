@@ -1,0 +1,19 @@
+V1.7.1 Windows user verification (backend regressions: source/verify_v171.py --full)
+[ ] Anhui_Fute_vertical_drawings.pdf page 1: six separate cabinet frames, not one whole A1 sheet.
+[ ] Select first cabinet 1ACP1: incoming MCCB 630A/3P; four MCCB 200A/3P; four VFD 90kW.
+[ ] Click VFD item: red frame lands on printed VFD rectangle in original PDF.
+[ ] Exclude reference diagram: bulk recognition skips excluded, region remains in directory.
+[ ] Test manual direction override on a rotated document and check PDF red frame positions.
+[ ] XinYongLian_full_drawings.pdf: PP1 eleven feeders; main/CT/PM and other public devices remain.
+[ ] 1-4AP3_test.pdf: fourteen feeders, before-and-after repair results preserved.
+[ ] Save JSON, reopen, export CSV/Excel and verify counts and Chinese text.
+All recognition rows default to pending human review.
+
+[ ] Manually add an item: it immediately appears in the selected cabinet and in exports.
+[ ] Confirm or edit a quantity, run recognition twice: the human-edited item stays unchanged.
+[ ] Mark a physical symbol: subsequent OCR preserves the manually selected box.
+[ ] CT ratio alone leaves quantity blank; enter and confirm the actual count from the drawing.
+[ ] Summary and Excel separate candidate counts, confirmed counts, and unknown-count records.
+[ ] Move the original PDF, reopen the JSON project, use the reattach button: reviewed records stay.
+[ ] Reattach a different PDF to a new project with a saved hash: the mismatch is rejected.
+[ ] Multiple SPD/SCB labels remain separate; ambiguous identity or quantity prompts review.

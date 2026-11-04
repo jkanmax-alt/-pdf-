@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+cache/
+build/
+dist/
+*.spec
+/samples/
+/reference_private/
+*.zip

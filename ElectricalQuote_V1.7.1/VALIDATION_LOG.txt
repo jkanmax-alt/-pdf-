@@ -1,0 +1,73 @@
+test_cache_rebinds_region_and_cabinet (test_counting_fixes.CacheFixes.test_cache_rebinds_region_and_cabinet) ... ok
+test_same_size_and_timestamp_different_pdf_invalidates_cache (test_counting_fixes.CacheFixes.test_same_size_and_timestamp_different_pdf_invalidates_cache) ... ok
+test_candidates_confirmed_and_unknown_are_separate (test_counting_fixes.CountingFixes.test_candidates_confirmed_and_unknown_are_separate) ... ok
+test_ct_requires_printed_quantity_and_migrates_old_guess (test_counting_fixes.CountingFixes.test_ct_requires_printed_quantity_and_migrates_old_guess) ... ok
+test_export_round_trip_keeps_unknown_and_confirmation (test_counting_fixes.CountingFixes.test_export_round_trip_keeps_unknown_and_confirmation) ... ok
+test_group_specific_pitch_reaches_ocr_crops_and_evidence (test_counting_fixes.CountingFixes.test_group_specific_pitch_reaches_ocr_crops_and_evidence) ... ok
+test_unknown_and_invalid_quantities_never_become_one (test_counting_fixes.CountingFixes.test_unknown_and_invalid_quantities_never_become_one) ... ok
+test_equal_nonzero_scores_require_review (test_geometry_fixes.DirectionTests.test_equal_nonzero_scores_require_review) ... ok
+test_unique_supported_rotation_is_applied (test_geometry_fixes.DirectionTests.test_unique_supported_rotation_is_applied) ... ok
+test_unreadable_titles_keep_original (test_geometry_fixes.DirectionTests.test_unreadable_titles_keep_original) ... ok
+test_changed_group_pitch_is_retained (test_geometry_fixes.FeederGroupTests.test_changed_group_pitch_is_retained) ... ok
+test_isolated_surge_and_sheet_edges_are_excluded (test_geometry_fixes.FeederGroupTests.test_isolated_surge_and_sheet_edges_are_excluded) ... ok
+test_pitch_change_without_a_blank_group_gap (test_geometry_fixes.FeederGroupTests.test_pitch_change_without_a_blank_group_gap) ... ok
+test_printed_tag_crops_use_each_groups_pitch (test_geometry_fixes.FeederGroupTests.test_printed_tag_crops_use_each_groups_pitch) ... ok
+test_separated_groups_are_both_retained (test_geometry_fixes.FeederGroupTests.test_separated_groups_are_both_retained) ... ok
+test_three_point_group_can_share_the_previous_endpoint (test_geometry_fixes.FeederGroupTests.test_three_point_group_can_share_the_previous_endpoint) ... ok
+test_unassigned_end_line_is_reported (test_geometry_fixes.FeederGroupTests.test_unassigned_end_line_is_reported) ... ok
+test_different_currents_with_shared_digits_do_not_match (test_geometry_fixes.PrintedLocationTests.test_different_currents_with_shared_digits_do_not_match) ... ok
+test_group_gap_does_not_expand_the_label_search (test_geometry_fixes.PrintedLocationTests.test_group_gap_does_not_expand_the_label_search) ... ok
+test_missing_feeder_label_does_not_steal_its_neighbors_label (test_geometry_fixes.PrintedLocationTests.test_missing_feeder_label_does_not_steal_its_neighbors_label) ... ok
+test_same_word_in_two_psm_passes_cannot_prove_two_devices (test_geometry_fixes.PrintedLocationTests.test_same_word_in_two_psm_passes_cannot_prove_two_devices) ... ok
+test_vertical_branch_search_stays_in_its_column_after_rotation (test_geometry_fixes.PrintedLocationTests.test_vertical_branch_search_stays_in_its_column_after_rotation) ... ok
+test_compact_preserves_neutral_and_tm_model (test_recognition_fixes.BreakerRecognitionTests.test_compact_preserves_neutral_and_tm_model) ... ok
+test_incoming_preserves_neutral_pole (test_recognition_fixes.BreakerRecognitionTests.test_incoming_preserves_neutral_pole) ... ok
+test_rcbo_keyword_survives_numeric_ocr_correction (test_recognition_fixes.BreakerRecognitionTests.test_rcbo_keyword_survives_numeric_ocr_correction) ... ok
+test_unreadable_column_is_review_item_without_inventing_breaker (test_recognition_fixes.BreakerRecognitionTests.test_unreadable_column_is_review_item_without_inventing_breaker) ... ok
+test_fragmented_model_words_follow_horizontal_order_not_glyph_height (test_recognition_fixes.SurgeRecognitionTests.test_fragmented_model_words_follow_horizontal_order_not_glyph_height) ... ok
+test_generic_label_next_to_full_model_is_an_independent_entity (test_recognition_fixes.SurgeRecognitionTests.test_generic_label_next_to_full_model_is_an_independent_entity) ... ok
+test_local_parameter_area_excludes_adjacent_same_kind_device (test_recognition_fixes.SurgeRecognitionTests.test_local_parameter_area_excludes_adjacent_same_kind_device) ... ok
+test_neighbor_model_cannot_supply_an_anchors_parameters (test_recognition_fixes.SurgeRecognitionTests.test_neighbor_model_cannot_supply_an_anchors_parameters) ... ok
+test_repeated_ocr_fuses_same_position_but_retains_identical_devices (test_recognition_fixes.SurgeRecognitionTests.test_repeated_ocr_fuses_same_position_but_retains_identical_devices) ... ok
+test_single_text_only_paragraph_remains_supported (test_recognition_fixes.SurgeRecognitionTests.test_single_text_only_paragraph_remains_supported) ... ok
+test_text_only_reread_does_not_shrink_existing_counts_or_silence_warning (test_recognition_fixes.SurgeRecognitionTests.test_text_only_reread_does_not_shrink_existing_counts_or_silence_warning) ... ok
+test_two_spatial_pairs_retain_separate_parameters_and_quantities (test_recognition_fixes.SurgeRecognitionTests.test_two_spatial_pairs_retain_separate_parameters_and_quantities) ... ok
+test_unknown_quantity_is_not_treated_as_a_verified_pair (test_recognition_fixes.SurgeRecognitionTests.test_unknown_quantity_is_not_treated_as_a_verified_pair) ... ok
+test_unlocated_multiple_models_remain_unknown_without_mixed_parameters (test_recognition_fixes.SurgeRecognitionTests.test_unlocated_multiple_models_remain_unknown_without_mixed_parameters) ... ok
+test_edit_marks_manual_quantity_without_auto_confirming (test_ui_fixes.UiFixTests.test_edit_marks_manual_quantity_without_auto_confirming) ... ok
+test_failed_new_pdf_does_not_close_current_document (test_ui_fixes.UiFixTests.test_failed_new_pdf_does_not_close_current_document) ... ok
+test_legacy_manual_symbol_coordinates_are_protected (test_ui_fixes.UiFixTests.test_legacy_manual_symbol_coordinates_are_protected) ... ok
+test_manual_add_is_bound_and_visible_in_current_cabinet (test_ui_fixes.UiFixTests.test_manual_add_is_bound_and_visible_in_current_cabinet) ... ok
+test_manual_pending_changes_are_also_preserved (test_ui_fixes.UiFixTests.test_manual_pending_changes_are_also_preserved) ... ok
+test_manual_symbol_marking_is_protected_without_confirming_quantity (test_ui_fixes.UiFixTests.test_manual_symbol_marking_is_protected_without_confirming_quantity) ... ok
+test_missing_project_pdf_detaches_old_document (test_ui_fixes.UiFixTests.test_missing_project_pdf_detaches_old_document) ... ok
+test_mutating_actions_are_blocked_while_busy (test_ui_fixes.UiFixTests.test_mutating_actions_are_blocked_while_busy) ... ok
+test_quality_exposes_geometry_and_unresolved_branch_diagnostics (test_ui_fixes.UiFixTests.test_quality_exposes_geometry_and_unresolved_branch_diagnostics) ... ok
+test_reattach_preserves_records_and_region_coordinates (test_ui_fixes.UiFixTests.test_reattach_preserves_records_and_region_coordinates) ... ok
+test_reattach_rejects_different_pdf_when_fingerprint_exists (test_ui_fixes.UiFixTests.test_reattach_rejects_different_pdf_when_fingerprint_exists) ... ok
+test_reattach_rejects_missing_project_pages (test_ui_fixes.UiFixTests.test_reattach_rejects_missing_project_pages) ... ok
+test_repeat_recognition_never_overwrites_confirmed_rows (test_ui_fixes.UiFixTests.test_repeat_recognition_never_overwrites_confirmed_rows) ... ok
+test_summary_separates_confirmed_pending_and_unknown_quantities (test_ui_fixes.UiFixTests.test_summary_separates_confirmed_pending_and_unknown_quantities) ... ok
+test_unlinked_project_cannot_mark_symbols_or_move_on_stale_image (test_ui_fixes.UiFixTests.test_unlinked_project_cannot_mark_symbols_or_move_on_stale_image) ... ok
+test_unreviewed_recognition_can_still_refresh (test_ui_fixes.UiFixTests.test_unreviewed_recognition_can_still_refresh) ... ok
+
+----------------------------------------------------------------------
+Ran 52 tests in 0.314s
+
+OK
+PASS: segmentation XinYongLian_full_drawings.pdf [7, 9, 3, 5, 7, 7, 6]
+PASS: segmentation Anhui_Fute_vertical_drawings.pdf [6, 6, 9, 6, 6]
+PASS: 1-2AP4 full frame [1560.68, 70.82, 2144.48, 815.0]
+PASS: independent SPD/SCB model and surge parameter parsing
+PASS: complete OCR 1-1PP1 11 feeder records
+PASS: complete OCR 1-1PP3 20 feeder records
+PASS: complete OCR 1-2AP4 21 feeder records
+V1.7 CHECKS PASSED
+Anhui_Fute_vertical_drawings.pdf segmentation [6, 6, 9, 6, 6]
+XinYongLian_full_drawings.pdf segmentation [7, 9, 3, 5, 7, 7, 6]
+Orientation 0/90/180/270 PASS: 4x MCCB 200A and 4x VFD 90kW
+XinYongLian PP1: 11 feeders, 16 records
+CSV export PASS; existing Excel writer retained
+V1.6.0 basic regression PASS
+PASS: 1-4AP3 14 feeders; CT quantity requires printed evidence
+V1.7.1 CHECKS PASSED (including real PDF OCR)

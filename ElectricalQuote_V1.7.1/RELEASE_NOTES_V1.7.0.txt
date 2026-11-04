@@ -1,0 +1,28 @@
+ElectricalQuote V1.7.0 - True panel borders, printed feeder tags and SPD/SCB recognition
+
+1. Panel clipping repair: for a truncated candidate box, seek a matching PDF
+   vector frame with matching top, bottom and left edges. Extends right edge
+   only when supported by real vector geometry, not by fixed-ratio guesses.
+2. Printed feeder tags: read observed cells and never create sequential W tags.
+   Missing or duplicate OCR values are left blank for manual review.
+3. Surge branch: independently parse actual SPD and SCB legends. Preserve T1/T2
+   when directly observed, Imax, In, Iimp, Uc, Up, poles and original models.
+   Never treat SCB's 80 as SPD's Imax; never treat Iimp as Imax.
+4. Surge pair quality: SPD without SCB, SCB without SPD or count differences
+   create warnings; no material is silently added to drawing recognition rows.
+5. OCR evidence: printable label positions are rendered as blue evidence frames;
+   physical symbol frames require actual detected symbols/manual marking.
+6. Export workbook adds '防雷原图参数' sheet when SPD/SCB are recognized.
+7. Identification remains candidate-level. All rows need review, especially
+   unusual circuit layouts and unclear surge labels.
+
+Tested samples: 1-2AP4 = 21 feeders with W1-W21, W16 RCBO-C20A/2P,
+  SCB HKPD-SCB2/80/4P and SPD HKPD-B80/420/4P T2 Imax80kA 4P;
+  1-1PP1 = 11 feeders (one printed W tag remains unresolved);
+  1-1PP3 = 20 feeders; 1-4AP3 = 14 feeders.
+Full PDF candidate frame counts unchanged: 44 / 33 for XinYongLian / Anhui.
+
+Use a NEW extract folder. Open PDF and detect cabinets again; do not load
+stale V1.6 OCR results in place of a fresh recognition run.
+Dependencies: Python 3.11+, Tesseract in PATH, install_windows.bat.
+This package is not a precompiled standalone EXE.
