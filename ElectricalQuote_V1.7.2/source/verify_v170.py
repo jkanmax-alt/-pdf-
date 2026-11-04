@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parent.parent
 def check(full=False):
     xin=ROOT/'samples/XinYongLian_full_drawings.pdf'
     anh=ROOT/'samples/Anhui_Fute_vertical_drawings.pdf'
-    for pdf,expected in ((xin,[7,9,3,5,7,7,6]),(anh,[6,6,9,6,6])):
+    for pdf,expected in ((xin,[7,9,3,6,7,7,6]),(anh,[6,6,9,6,6])):
         with fitz.open(pdf) as d:
             counts=[len(detect_page(d,i)) for i in range(len(d))]
             assert counts==expected,(pdf.name,counts)

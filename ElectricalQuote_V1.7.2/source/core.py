@@ -204,6 +204,15 @@ def save_xlsx(path,rows,preview=None):
                 meta.get('spd_pole','') if r.get('kind')=='浪涌保护器' else meta.get('pole',''),
                 meta.get('uc_v'),meta.get('up_kv'),quantity_value(r),r.get('remark',''),r.get('status','')])
         sheet('防雷原图参数',['柜号','元器件类别','图纸型号参数','T类型','Imax(kA)','In(kA)','Iimp(kA)','极数','Uc(V)','Up(kV)','数量（空白待核）','来源说明','确认状态'],vals)
+    advised=[r for r in rows if r.get('selection_advice')]
+    if advised:
+        entries=[]
+        for r in advised:
+            a=r['selection_advice']
+            entries.append([r.get('cabinet',''),r.get('tag',''),r.get('kind',''),r.get('spec',''),
+                a.get('load_kw'),a.get('estimated_current_a'),a.get('contactor_threshold_a'),
+                a.get('contactor_suggested_a'),a.get('thermal_target_a'),a.get('contactor_series'),a.get('note')])
+        sheet('负载选型建议',['柜号','原印位号','图纸器件','图纸参数（保留）','负载kW','估算电流A','接触器须大于A','建议接触器档位A','热继目标整定电流A','参考系列','待核对说明'],entries)
     sheet('规则预览',['补充项目','计算建议','说明'],[list(x) for x in (preview or [])])
     wb.save(str(path))
 

@@ -24,10 +24,10 @@ class Main(PreviousMain):
   self.root.after(350,self.initial_sash_width)
 
  def build(self):
-  self.root.title('电气图纸识别 V1.7.1 · 图框/位号与防雷支路识别');self.root.geometry('1580x940');self.root.minsize(1150,690)
+  self.root.title('电气图纸识别 V1.7.2 · 图框/位号与防雷支路识别');self.root.geometry('1580x940');self.root.minsize(1150,690)
   style=ttk.Style();style.theme_use('clam');style.configure('Treeview',rowheight=27,font=('Microsoft YaHei UI',10));style.configure('TButton',font=('Microsoft YaHei UI',10))
   header=tk.Frame(self.root,bg='#17324d');header.pack(side='top',fill='x')
-  tk.Label(header,text='⚡ 电气图纸智能识别  V1.7.1',bg='#17324d',fg='white',font=('Microsoft YaHei UI',16,'bold')).pack(side='left',padx=16,pady=11)
+  tk.Label(header,text='⚡ 电气图纸智能识别  V1.7.2',bg='#17324d',fg='white',font=('Microsoft YaHei UI',16,'bold')).pack(side='left',padx=16,pady=11)
   for text,fn in [('打开PDF',self.open_pdf),('关联原PDF',self.reattach_pdf),('打开项目',self.open_project),('保存项目',self.save_project),('导出Excel',self.export_xlsx),('导出CSV',self.export_csv)]:
    tk.Button(header,text=text,command=fn,bg='#eaf1f9',relief='flat',padx=10,pady=7).pack(side='left',padx=4)
   self.tabs=ttk.Panedwindow(self.root,orient='horizontal');self.tabs.pack(fill='both',expand=True,padx=6,pady=6)
@@ -79,7 +79,7 @@ class Main(PreviousMain):
   self.tree.pack(side='left',fill='both',expand=True);sc=ttk.Scrollbar(box,orient='vertical',command=self.tree.yview);sc.pack(side='right',fill='y');self.tree.configure(yscrollcommand=sc.set)
   self.tree.bind('<<TreeviewSelect>>',lambda e:self.focus_selected());self.tree.bind('<Double-1>',lambda e:self.edit())
   buttons=ttk.Frame(right);buttons.pack(fill='x',pady=8)
-  for t,fn in [('新增',self.add),('修改',self.edit),('删除',self.delete),('分类汇总',self.show_summary),('证据预览',self.show_selected_evidence),('定位元件',self.mark_selected_device),('识别质量',self.show_quality)]:
+  for t,fn in [('新增',self.add),('修改',self.edit),('删除',self.delete),('分类汇总',self.show_summary),('证据预览',self.show_selected_evidence),('定位元件',self.mark_selected_device),('识别质量',self.show_quality),('负载选型',self.show_load_selection)]:
    ttk.Button(buttons,text=t,command=fn).pack(side='left',padx=2)
   ttk.Label(right,text='高级诊断：OCR原文默认隐藏，必要时可查看单柜质量报告',foreground='#788896').pack(anchor='w')
   rules=ttk.LabelFrame(right,text='报价规则预览（与识别清单完全分离）');rules.pack(fill='x',pady=(8,2))
@@ -478,6 +478,17 @@ class Main(PreviousMain):
   if diag.get('surge_warnings'):
    self.note(label+' 防雷支路需复核：'+'；'.join(diag['surge_warnings']))
   if result.get('cached'):self.note(f'{rid}从缓存读取识别结果。')
+ def show_load_selection(self):
+  idx=self.selected()
+  if idx is None:return messagebox.showinfo('负载选型','请先选择接触器或热继电器记录。')
+  row=self.rows[idx];a=row.get('selection_advice')
+  if not a:return messagebox.showinfo('负载选型','该记录的负载功率尚未可靠读取，请核对原图。图纸器件数量与选型建议分开保存。')
+  lines=[f"图纸器件：{row.get('kind','')} {row.get('spec','')}",
+   f"原印位号：{row.get('tag','')}",f"负载：{a['load_kw']} kW",f"估算电流：{a['estimated_current_a']} A",
+   f"接触器须大于：{a['contactor_threshold_a']} A",f"建议接触器档位：{a.get('contactor_suggested_a') or '需更高档/人工选型'} A",
+   f"参考系列：{a['contactor_series']}",f"热继整定范围应覆盖：{a['thermal_target_a']} A",a['note']]
+  messagebox.showinfo('负载选型建议（不覆盖原图）','\n'.join(lines))
+
  def show_quality(self):
   selected=self.selected_region();chosen=[r for r in self.rows if not selected or r.get('region_id')==selected['id']]
   missing=[r for r in chosen if not r.get('pdf_boxes')];review=[r for r in chosen if '待确认' in r.get('spec','') or r.get('kind')=='其他' or r.get('qty') is None]
@@ -513,7 +524,7 @@ class Main(PreviousMain):
    t.insert('end',f"{item['cabinet']} | {item['kind']} | {item['spec']}\n  候选已知：{item['qty']}；已确认：{item.get('confirmed_qty',0)}；待核对已知：{item.get('pending_qty',0)}；未知数量记录：{item.get('unknown_qty_count',0)}\n")
  def data(self):
   base=super().data()
-  base.update(version='1.7.1',regions=self.regions,pdf_path=self.pdf_path or self.missing_pdf_path,pdf_sha256=self.project_pdf_sha256)
+  base.update(version='1.7.2',regions=self.regions,pdf_path=self.pdf_path or self.missing_pdf_path,pdf_sha256=self.project_pdf_sha256)
   return base
 
  def open_project(self):

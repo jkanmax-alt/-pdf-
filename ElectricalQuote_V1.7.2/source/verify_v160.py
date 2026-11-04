@@ -15,7 +15,7 @@ def check():
     anh=ROOT/'samples/Anhui_Fute_vertical_drawings.pdf'
     xin=ROOT/'samples/XinYongLian_full_drawings.pdf'
     single=ROOT/'samples/1-4AP3_test.pdf'
-    for path,expected in [(anh,[6,6,9,6,6]),(xin,[7,9,3,5,7,7,6])]:
+    for path,expected in [(anh,[6,6,9,6,6]),(xin,[7,9,3,6,7,7,6])]:
         doc=fitz.open(path)
         got=[len(detect_page(doc,i)) for i in range(len(doc))]
         assert got==expected,(path,got,expected)

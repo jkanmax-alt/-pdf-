@@ -3,7 +3,7 @@ import os, json, hashlib
 import fitz
 from PIL import Image
 
-ALGORITHM_VERSION='v171-quantity-evidence-and-region-binding-1'
+ALGORITHM_VERSION='v172-panel-split-ct-and-motor-symbols-1'
 
 def cache_key(path,region):
     """Identity-independent cache, invalidated by actual PDF content changes."""
@@ -135,6 +135,9 @@ def run_one(args):
             surge_warnings=surge_pair_warnings(rows)
         diag['surge_warnings']=surge_warnings
         diag['surge_pair_status']='待复核' if surge_warnings else ('已找到SPD与SCB' if any(x['kind']=='浪涌保护器' for x in rows) else '未发现浪涌器件')
+        from electrical_symbols import recognize_motor_symbols, apply_ct_evidence
+        rows=apply_ct_evidence(p,clip,rows)
+        rows.extend(recognize_motor_symbols(p,clip,rows,region.get('cabinet') or diag.get('cabinet','待确认柜号'),page))
         # Clear layout-guessed source boxes; reattach ONLY OCR-observed glyphs.
         from precise_locator_v161 import locate_observed_printed_labels
         preserved=[]

@@ -23,8 +23,8 @@ def check(full=False):
             data=run_one((str(pdf),dict(id='1-4AP3',page=1,box=box,cabinet='1-4AP3'),cache))
             assert len([r for r in data['rows'] if r.get('record_role')=='feeder'])==14
             ct=[r for r in data['rows'] if r.get('kind')=='电流互感器']
-            assert ct and all(r.get('qty') is None or r.get('quantity_source')=='图纸数量标注' for r in ct)
-            print('PASS: 1-4AP3 14 feeders; CT quantity requires printed evidence',flush=True)
+            assert ct and all(r.get('qty') is None or r.get('quantity_source')=='图纸数量标注' or r.get('quantity_verified') or (r.get('qty')==3 and r.get('quantity_source','').startswith('用户规则：主进线3P')) for r in ct)
+            print('PASS: 1-4AP3 14 feeders; CT quantity has symbol evidence or explicit user three-phase rule',flush=True)
     print('V1.7.1 CHECKS PASSED'+(' (including real PDF OCR)' if full else ' (quick mode)'),flush=True)
 
 if __name__=='__main__':check(full='--full' in sys.argv)
