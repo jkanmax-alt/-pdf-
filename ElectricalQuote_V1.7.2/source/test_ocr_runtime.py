@@ -55,10 +55,10 @@ class PortableRuntimeTests(unittest.TestCase):
             os.chdir(foreign)
             with self.frozen(), patch.object(runtime.shutil, 'which') as lookup:
                 path = runtime.initialize_ocr()
-                self.assertEqual(path, str(bundle / 'tesseract.exe'))
+                self.assertEqual(path, str((bundle / 'tesseract.exe').resolve()))
                 self.assertEqual(pytesseract.pytesseract.tesseract_cmd, path)
-                self.assertEqual(os.environ['TESSDATA_PREFIX'], str(bundle / 'tessdata'))
-                self.assertEqual(os.environ['PATH'].split(os.pathsep)[0], str(bundle))
+                self.assertEqual(os.environ['TESSDATA_PREFIX'], str((bundle / 'tessdata').resolve()))
+                self.assertEqual(os.environ['PATH'].split(os.pathsep)[0], str(bundle.resolve()))
                 lookup.assert_not_called()
         finally:
             os.chdir(previous)
@@ -94,7 +94,7 @@ class PortableRuntimeTests(unittest.TestCase):
                     patches.enter_context(patch.object(sys, 'executable', str(directory / 'app.exe')))
                     patches.enter_context(patch.object(sys, '_MEIPASS', str(self.root / 'unused'), create=True))
                 with patches:
-                    self.assertEqual(runtime.initialize_ocr(), str(bundle / 'tesseract.exe'))
+                    self.assertEqual(runtime.initialize_ocr(), str((bundle / 'tesseract.exe').resolve()))
 
     def test_source_vendor_layout_does_not_need_path_lookup(self):
         fake_source = self.root / 'source'
@@ -102,7 +102,7 @@ class PortableRuntimeTests(unittest.TestCase):
         bundle = self.bundle(self.root / 'vendor' / 'tesseract')
         with patch.object(runtime, '__file__', str(fake_source / 'ocr_runtime.py')), \
              patch.object(runtime.shutil, 'which') as lookup:
-            self.assertEqual(runtime.initialize_ocr(), str(bundle / 'tesseract.exe'))
+            self.assertEqual(runtime.initialize_ocr(), str((bundle / 'tesseract.exe').resolve()))
             lookup.assert_not_called()
 
     def test_missing_language_has_explicit_failure(self):
@@ -137,7 +137,25 @@ class PortableRuntimeTests(unittest.TestCase):
             os.environ['PATH'] = os.pathsep.join([str(self.root / '_internal'), str(bundle), '/system-bin'])
             parent_path = os.environ['PATH']
             child = runtime._child_environment()
-            self.assertEqual(child['PATH'].split(os.pathsep), [str(bundle), '/system-bin'])
+            self.assertEqual(child['PATH'].split(os.pathsep), [str(bundle.resolve()), '/system-bin'])
+            self.assertEqual(os.environ['PATH'], parent_path)
+
+    def test_child_path_removes_short_name_aliases_of_python_and_ocr_dirs(self):
+        bundle = self.bundle()
+        short_python = str(self.root / 'PYTHON~1')
+        short_ocr = str(self.root / 'OCR~1')
+        original_realpath = os.path.realpath
+        aliases = {short_python: str((self.root / '_internal').resolve()),
+                   short_ocr: str(bundle.resolve())}
+        def realpath_with_windows_aliases(path, *args, **kwargs):
+            return aliases.get(os.fspath(path), original_realpath(path, *args, **kwargs))
+        with self.frozen():
+            runtime.initialize_ocr()
+            os.environ['PATH'] = os.pathsep.join([short_python, short_ocr, '/system-bin'])
+            parent_path = os.environ['PATH']
+            with patch.object(runtime.os.path, 'realpath', side_effect=realpath_with_windows_aliases):
+                child = runtime._child_environment()
+            self.assertEqual(child['PATH'].split(os.pathsep), [str(bundle.resolve()), '/system-bin'])
             self.assertEqual(os.environ['PATH'], parent_path)
 
     def test_windows_dll_directory_is_restored_when_child_launch_fails(self):
@@ -180,8 +198,8 @@ class PortableRuntimeTests(unittest.TestCase):
         local = self.root / 'user-data'
         with self.frozen(), patch.dict(os.environ, {'LOCALAPPDATA': str(local)}):
             cache = runtime.writable_cache_dir()
-            self.assertTrue(cache.is_relative_to(local))
-            self.assertFalse(cache.is_relative_to(self.root / '_internal'))
+            self.assertTrue(cache.is_relative_to(local.resolve()))
+            self.assertFalse(cache.is_relative_to((self.root / '_internal').resolve()))
 
     def test_windowed_self_check_writes_json_with_no_stdout_or_tk(self):
         import app_v16

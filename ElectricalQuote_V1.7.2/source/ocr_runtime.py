@@ -20,6 +20,11 @@ _launch_lock = threading.RLock()
 _active_engine = None
 
 
+def _path_key(path):
+    """Compare physical paths, including Windows 8.3 and long-name aliases."""
+    return os.path.normcase(os.path.realpath(os.path.abspath(path)))
+
+
 def _bundle_directories():
     executable_dir = Path(sys.executable).resolve().parent
     source_dir = Path(__file__).resolve().parent
@@ -66,15 +71,15 @@ def _child_environment(env=None):
     engine = state.get('engine_path')
     if not engine:
         return result
-    engine_dir = str(Path(engine).parent)
+    engine_dir = str(Path(engine).resolve().parent)
     polluted = set()
     if getattr(sys, 'frozen', False):
-        polluted.add(os.path.normcase(str(Path(sys.executable).resolve().parent / '_internal')))
+        polluted.add(_path_key(Path(sys.executable).resolve().parent / '_internal'))
         if getattr(sys, '_MEIPASS', None):
-            polluted.add(os.path.normcase(str(Path(sys._MEIPASS).resolve())))
+            polluted.add(_path_key(sys._MEIPASS))
+    polluted.add(_path_key(engine_dir))
     entries = [p for p in result.get('PATH', '').split(os.pathsep)
-               if p and os.path.normcase(os.path.abspath(p)) not in polluted
-               and os.path.normcase(os.path.abspath(p)) != os.path.normcase(engine_dir)]
+               if p and _path_key(p) not in polluted]
     result['PATH'] = os.pathsep.join([engine_dir] + entries)
     if state.get('tessdata_path'):
         result['TESSDATA_PREFIX'] = state['tessdata_path']
@@ -175,9 +180,10 @@ def initialize_ocr():
     pytesseract.pytesseract.subprocess = _OCRSubprocess()
     if state['bundled']:
         os.environ['TESSDATA_PREFIX'] = state['tessdata_path']
-        engine_dir = str(Path(engine).parent)
+        engine_dir = str(Path(engine).resolve().parent)
+        engine_key = _path_key(engine_dir)
         entries = [p for p in os.environ.get('PATH', '').split(os.pathsep)
-                   if p and os.path.normcase(os.path.abspath(p)) != os.path.normcase(engine_dir)]
+                   if p and _path_key(p) != engine_key]
         os.environ['PATH'] = os.pathsep.join([engine_dir] + entries)
     if not engine or not Path(engine).is_file():
         if state['bundled']:

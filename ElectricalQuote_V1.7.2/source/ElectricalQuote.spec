@@ -63,7 +63,7 @@ for name in ("requirements-build-windows.txt", "PORTABLE_WINDOWS.md", "README_CN
 datas.append((str(project_dir / "PORTABLE_WINDOWS.md"), "."))
 
 a = Analysis(
-    [str(source_dir / "app_v16.py")],
+    [str(source_dir / "portable_entry.py")],
     pathex=[str(source_dir)],
     binaries=binaries,
     datas=datas,

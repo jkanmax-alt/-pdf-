@@ -36,13 +36,9 @@ jobs:
         run: python -m pip install -r requirements-build-windows.txt
       - name: Verify source regressions
         run: |
-          python -m unittest discover -s source -p "test_*fixes.py" *> source-regressions.log
+          python -m unittest discover -s source -p "test_*.py" *> source-regressions.log
           $code = $LASTEXITCODE
           Get-Content source-regressions.log
-          if ($code -ne 0) { exit $code }
-          python -m unittest discover -s source -p "test_ocr_runtime.py" *> ocr-runtime-tests.log
-          $code = $LASTEXITCODE
-          Get-Content ocr-runtime-tests.log
           exit $code
       - name: Prepare checked OCR engine, DLLs and languages
         run: |
@@ -86,6 +82,8 @@ jobs:
     needs: build
     runs-on: windows-2022
     timeout-minutes: 20
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -144,6 +142,18 @@ jobs:
           name: windows-portable-test-reports
           path: reports/
           retention-days: 14
+      - name: Publish failed verification reports for diagnosis
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          $reports = @(Get-ChildItem reports/*.json -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+          if ($reports.Count -gt 0) {
+            gh release create "portable-verification-diagnostics-r${{ github.run_number }}" @reports --target "$env:GITHUB_SHA" --title "Windows verification diagnostics (not a portable release) ${{ github.run_number }}" --notes 'EXE verification failed. Diagnostic reports only; no tested portable ZIP is published by this run.' --prerelease
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
   publish:
     needs: verify
