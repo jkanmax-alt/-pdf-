@@ -18,6 +18,8 @@ concurrency:
 jobs:
   build:
     runs-on: windows-2022
+    permissions:
+      contents: write
     timeout-minutes: 30
     defaults:
       run:
@@ -34,13 +36,37 @@ jobs:
         run: python -m pip install -r requirements-build-windows.txt
       - name: Verify source regressions
         run: |
-          python -m unittest discover -s source -p "test_*fixes.py"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m unittest discover -s source -p "test_ocr_runtime.py"
+          python -m unittest discover -s source -p "test_*fixes.py" *> source-regressions.log
+          $code = $LASTEXITCODE
+          Get-Content source-regressions.log
+          if ($code -ne 0) { exit $code }
+          python -m unittest discover -s source -p "test_ocr_runtime.py" *> ocr-runtime-tests.log
+          $code = $LASTEXITCODE
+          Get-Content ocr-runtime-tests.log
+          exit $code
       - name: Prepare checked OCR engine, DLLs and languages
-        run: python tools/prepare_tesseract_windows.py --output vendor/tesseract
+        run: |
+          python tools/prepare_tesseract_windows.py --output vendor/tesseract *> ocr-prepare.log
+          $code = $LASTEXITCODE
+          Get-Content ocr-prepare.log
+          exit $code
       - name: Build complete onedir EXE
-        run: python -m PyInstaller --clean --noconfirm source/ElectricalQuote.spec
+        run: |
+          python -m PyInstaller --clean --noconfirm source/ElectricalQuote.spec *> pyinstaller-build.log
+          $code = $LASTEXITCODE
+          Get-Content pyinstaller-build.log
+          exit $code
+      - name: Publish failure evidence for diagnosis
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $logs = @(Get-ChildItem *.log -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+          if ($logs.Count -gt 0) {
+            gh release create "portable-diagnostics-r${{ github.run_number }}" @logs --target "$env:GITHUB_SHA" --title "Windows build diagnostics (not a portable release) ${{ github.run_number }}" --notes 'Build failed; diagnostic logs only. No usable Windows portable ZIP has been published by this run.' --prerelease
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - name: Archive complete distribution
         shell: pwsh
         run: |
