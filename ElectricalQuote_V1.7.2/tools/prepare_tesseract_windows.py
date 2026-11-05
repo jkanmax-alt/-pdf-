@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
+import xml.etree.ElementTree as ET
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENGINE_VERSION = "5.4.0.20240606"
@@ -52,6 +53,176 @@ SYSTEM_DLLS = frozenset({
     "ole32.dll", "rpcrt4.dll", "shell32.dll", "shlwapi.dll", "user32.dll",
     "usp10.dll", "ws2_32.dll",
 })
+ASM_V1 = "urn:schemas-microsoft-com:asm.v1"
+ASM_V3 = "urn:schemas-microsoft-com:asm.v3"
+COMPAT_V1 = "urn:schemas-microsoft-com:compatibility.v1"
+WINDOWS_SETTINGS_2019 = "http://schemas.microsoft.com/SMI/2019/WindowsSettings"
+WINDOWS_10_GUID = "{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"
+UTF8_MANIFEST_REFERENCE = (
+    "https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page"
+)
+
+
+def utf8_manifest(original: bytes | None = None) -> bytes:
+    """Retain upstream manifest settings and opt narrow Win32 APIs into UTF-8.
+
+    The unmodified UB Mannheim executable has no embedded manifest. Its
+    narrow-character filesystem calls otherwise cannot open a Chinese path
+    on a runner whose ANSI code page does not represent Chinese characters.
+    """
+    ET.register_namespace("", ASM_V1)
+    ET.register_namespace("asmv3", ASM_V3)
+    ET.register_namespace("compat", COMPAT_V1)
+    ET.register_namespace("ws2019", WINDOWS_SETTINGS_2019)
+    if original is not None:
+        parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
+        root = ET.fromstring(original, parser=parser)
+        if root.tag != f"{{{ASM_V1}}}assembly":
+            raise ValueError("Unexpected upstream executable manifest root")
+    else:
+        root = ET.Element(f"{{{ASM_V1}}}assembly", {"manifestVersion": "1.0"})
+        ET.SubElement(root, f"{{{ASM_V1}}}assemblyIdentity", {
+            "type": "win32", "name": "ElectricalQuote.Tesseract",
+            "version": "5.4.0.0", "processorArchitecture": "amd64",
+        })
+    application = root.find(f"{{{ASM_V3}}}application")
+    if application is None:
+        application = ET.SubElement(root, f"{{{ASM_V3}}}application")
+    settings = application.find(f"{{{ASM_V3}}}windowsSettings")
+    if settings is None:
+        settings = ET.SubElement(application, f"{{{ASM_V3}}}windowsSettings")
+    code_pages = settings.findall(f"{{{WINDOWS_SETTINGS_2019}}}activeCodePage")
+    if not code_pages:
+        code_pages = [ET.SubElement(settings, f"{{{WINDOWS_SETTINGS_2019}}}activeCodePage")]
+    for code_page in code_pages:
+        code_page.text = "UTF-8"
+    # Preserve other supported-OS entries and add Windows 10 awareness.
+    compatibility = root.find(f"{{{COMPAT_V1}}}compatibility")
+    if compatibility is None:
+        compatibility = ET.SubElement(root, f"{{{COMPAT_V1}}}compatibility")
+    compat_application = compatibility.find(f"{{{COMPAT_V1}}}application")
+    if compat_application is None:
+        compat_application = ET.SubElement(compatibility, f"{{{COMPAT_V1}}}application")
+    if not any(node.get("Id", "").lower() == WINDOWS_10_GUID for node in compat_application):
+        ET.SubElement(compat_application, f"{{{COMPAT_V1}}}supportedOS", {"Id": WINDOWS_10_GUID})
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def executable_manifests(path: Path) -> list[dict]:
+    import pefile
+    pe = pefile.PE(str(path))
+    result = []
+    try:
+        directory = getattr(pe, "DIRECTORY_ENTRY_RESOURCE", None)
+        for resource_type in directory.entries if directory is not None else []:
+            if resource_type.id != 24:  # RT_MANIFEST
+                continue
+            for resource in resource_type.directory.entries:
+                if resource.id != 1:  # CREATEPROCESS_MANIFEST_RESOURCE_ID
+                    continue
+                for language in resource.directory.entries:
+                    entry = language.data.struct
+                    result.append({"resource_id": resource.id, "language": language.id,
+                                   "data": pe.get_data(entry.OffsetToData, entry.Size)})
+    finally:
+        pe.close()
+    return result
+
+
+def _write_manifest_resources_windows(path: Path, resources: list[dict]) -> None:
+    import ctypes
+    from ctypes import wintypes
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    begin = kernel32.BeginUpdateResourceW
+    begin.argtypes = [wintypes.LPCWSTR, wintypes.BOOL]
+    begin.restype = wintypes.HANDLE
+    update = kernel32.UpdateResourceW
+    update.argtypes = [wintypes.HANDLE, ctypes.c_void_p, ctypes.c_void_p,
+                       wintypes.WORD, ctypes.c_void_p, wintypes.DWORD]
+    update.restype = wintypes.BOOL
+    end = kernel32.EndUpdateResourceW
+    end.argtypes = [wintypes.HANDLE, wintypes.BOOL]
+    end.restype = wintypes.BOOL
+    handle = begin(str(path.resolve()), False)  # Keep all original resources.
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    committed = False
+    try:
+        for resource in resources:
+            data = resource["data"]
+            buffer = ctypes.create_string_buffer(data)
+            if not update(handle, ctypes.c_void_p(24), ctypes.c_void_p(1),
+                          resource["language"], buffer, len(data)):
+                raise ctypes.WinError(ctypes.get_last_error())
+        if not end(handle, False):
+            raise ctypes.WinError(ctypes.get_last_error())
+        committed = True
+    finally:
+        if not committed:
+            end(handle, True)
+
+
+def _remove_stale_signature(path: Path) -> bool:
+    """Do not present the upstream Authenticode signature as valid after editing."""
+    import pefile
+    data = bytearray(path.read_bytes())
+    pe = pefile.PE(data=bytes(data))
+    try:
+        security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[4]
+        had_signature = bool(security.VirtualAddress and security.Size)
+        if had_signature:
+            if security.VirtualAddress + security.Size == len(data):
+                del data[security.VirtualAddress:]
+            struct.pack_into("<II", data, security.get_file_offset(), 0, 0)
+    finally:
+        pe.close()
+    pe = pefile.PE(data=bytes(data))
+    try:
+        struct.pack_into("<I", data, pe.OPTIONAL_HEADER.get_field_absolute_offset("CheckSum"), pe.generate_checksum())
+    finally:
+        pe.close()
+    path.write_bytes(data)
+    return had_signature
+
+
+def _code_section_hashes(path: Path) -> dict:
+    import pefile
+    pe = pefile.PE(str(path))
+    try:
+        return {section.Name.rstrip(b"\0").decode("ascii"): hashlib.sha256(section.get_data()).hexdigest()
+                for section in pe.sections if section.Name.rstrip(b"\0") in {b".text", b".data", b".rdata"}}
+    finally:
+        pe.close()
+
+
+def patch_engine_utf8_manifest(path: Path) -> dict:
+    """Edit executable metadata only; preserve and verify algorithm/data sections."""
+    original_sha = sha256(path)
+    if os.name != "nt":
+        return {"applied": False, "reason": "Windows resource API required; static inspection only",
+                "original_engine_sha256": original_sha, "engine_sha256": original_sha}
+    originals = executable_manifests(path)
+    updated = [{"resource_id": 1, "language": entry["language"], "data": utf8_manifest(entry["data"])}
+               for entry in originals] or [{"resource_id": 1, "language": 0, "data": utf8_manifest()}]
+    sections = _code_section_hashes(path)
+    _write_manifest_resources_windows(path, updated)
+    removed_signature = _remove_stale_signature(path)
+    if _code_section_hashes(path) != sections:
+        raise ValueError("Adding UTF-8 metadata unexpectedly changed executable code/data sections")
+    embedded = executable_manifests(path)
+    if [(item["language"], item["data"]) for item in embedded] != [(item["language"], item["data"]) for item in updated]:
+        raise ValueError("Embedded UTF-8 manifest verification failed")
+    return {
+        "applied": True, "kind": "embedded_manifest_activeCodePage_UTF-8", "reference": UTF8_MANIFEST_REFERENCE,
+        "minimum_windows": "Windows 10 version 1903", "original_engine_sha256": original_sha,
+        "engine_sha256": sha256(path), "unchanged_code_data_sections": sections,
+        "stale_authenticode_removed": removed_signature,
+        "original_manifest_resources": [{"resource_id": entry["resource_id"], "language": entry["language"],
+                                         "text": entry["data"].decode("utf-8-sig")} for entry in originals],
+        "embedded_manifest_resources": [{"resource_id": entry["resource_id"], "language": entry["language"],
+                                         "sha256": hashlib.sha256(entry["data"]).hexdigest(),
+                                         "text": entry["data"].decode("utf-8")} for entry in embedded],
+    }
 
 
 def sha256(path: Path) -> str:
@@ -145,13 +316,20 @@ def validate_runtime(root: Path, run_engine: bool = False) -> dict:
     if run_engine:
         if os.name != "nt":
             raise RuntimeError("Executing the Windows engine requires Windows; Linux checks are static only.")
+        resources = executable_manifests(exe)
+        if not resources or not all(
+            ET.fromstring(item["data"]).findtext(
+                f"{{{ASM_V3}}}application/{{{ASM_V3}}}windowsSettings/{{{WINDOWS_SETTINGS_2019}}}activeCodePage"
+            ) == "UTF-8" for item in resources
+        ):
+            raise ValueError("Tesseract lacks the embedded UTF-8 manifest required for Chinese installation paths; regenerate vendor/tesseract")
         environment = os.environ.copy()
         environment["PATH"] = str(Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32")
         environment["TESSDATA_PREFIX"] = str((root / "tessdata").resolve())
         version = subprocess.run([str(exe.resolve()), "--version"], env=environment, cwd=root,
-                                 capture_output=True, text=True, check=True, timeout=30)
+                                 capture_output=True, text=True, encoding="utf-8", errors="replace", check=True, timeout=30)
         languages = subprocess.run([str(exe.resolve()), "--tessdata-dir", str((root / "tessdata").resolve()), "--list-langs"],
-                                   env=environment, cwd=root, capture_output=True, text=True, check=True, timeout=30)
+                                   env=environment, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True, timeout=30)
         found = set(languages.stdout.splitlines())
         if not set(LANGUAGES).issubset(found):
             raise ValueError(f"Tesseract did not load required languages: {languages.stdout} {languages.stderr}")
@@ -159,7 +337,7 @@ def validate_runtime(root: Path, run_engine: bool = False) -> dict:
     return {"architecture": "x64", "dll_count": len(dlls), "imports": imports, "languages": sorted(LANGUAGES)}
 
 
-def write_inventory(root: Path, audit: dict) -> None:
+def write_inventory(root: Path, audit: dict, engine_compatibility: dict | None = None) -> None:
     files = {}
     for path in sorted(root.rglob("*")):
         if path.is_file() and path.name != "BUNDLE-MANIFEST.json":
@@ -170,6 +348,7 @@ def write_inventory(root: Path, audit: dict) -> None:
                       "checksum_source": WINGET_URL, "checksum_source_sha256": WINGET_SHA256},
         "language_data": {"repository": "https://github.com/tesseract-ocr/tessdata_fast",
                           "revision": TESSDATA_REVISION, "sha256": LANGUAGES},
+        "engine_compatibility": engine_compatibility,
         "audit": audit, "files": files,
     }
     (root / "BUNDLE-MANIFEST.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -215,12 +394,15 @@ def prepare(args: argparse.Namespace) -> None:
         # Installer plugins, uninstaller and unrelated training tools are not used.
         shutil.copytree(source, staged, ignore=shutil.ignore_patterns("$PLUGINSDIR", "*.exe"))
         shutil.copy2(source / "tesseract.exe", staged / "tesseract.exe")
+        engine_compatibility = patch_engine_utf8_manifest(staged / "tesseract.exe")
         for language, expected in LANGUAGES.items():
             data = download(f"{TESSDATA_BASE}/{language}.traineddata", cache / f"{language}.traineddata", expected)
             (staged / "tessdata").mkdir(exist_ok=True)
             shutil.copy2(data, staged / "tessdata" / data.name)
         notices = staged / "third_party_licenses"
         notices.mkdir(exist_ok=True)
+        (notices / "TESSERACT-UTF8-MANIFEST.json").write_text(
+            json.dumps(engine_compatibility, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         license_file = download(f"{TESSDATA_BASE}/LICENSE", cache / "tessdata_fast-LICENSE", TESSDATA_LICENSE_SHA256)
         shutil.copy2(license_file, notices / "tessdata_fast-LICENSE")
         shutil.copy2(metadata, notices / metadata.name)
@@ -233,7 +415,7 @@ def prepare(args: argparse.Namespace) -> None:
             "Python dependency license metadata is separately included by PyInstaller.\n",
             encoding="utf-8")
         audit = validate_runtime(staged, run_engine=(os.name == "nt"))
-        write_inventory(staged, audit)
+        write_inventory(staged, audit, engine_compatibility)
         staged.replace(output)
     print(f"Prepared: {output} ({audit['dll_count']} x64 DLLs; {', '.join(audit['languages'])})")
     if os.name != "nt":

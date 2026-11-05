@@ -197,22 +197,25 @@ def locate_tesseract():
     return initialize_ocr()
 
 
-def _engine_output(engine, option):
-    kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+def _engine_output(engine, option, diagnostics=None):
+    kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                   text=True, encoding='utf-8', errors='replace')
     if sys.platform == 'win32':
         kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
     process = _spawn_clean([engine, option], **kwargs)
     try:
-        output, _ = process.communicate(timeout=20)
+        output, diagnostic = process.communicate(timeout=20)
     except subprocess.TimeoutExpired:
         process.kill()
         process.communicate()
         raise OCRRuntimeError('Tesseract 自检超时：' + option)
+    if diagnostics is not None:
+        diagnostics.update(returncode=process.returncode, stdout=output, stderr=diagnostic)
+    combined = '\n'.join(part for part in (output.strip(), diagnostic.strip()) if part)
     if process.returncode:
         raise OCRRuntimeError('Tesseract ' + option + ' 失败（退出码 ' +
-                              str(process.returncode) + '）：' + output.strip())
-    return output.strip()
+                              str(process.returncode) + '）：' + combined)
+    return combined
 
 
 def _check_language(engine, language):
@@ -251,7 +254,8 @@ def self_check(required_languages=('eng', 'chi_sim', 'osd')):
                     result['errors'].append('语言数据缺失或为空：' + str(language_file))
         version = _engine_output(engine, '--version')
         result['version'] = version.splitlines()[0] if version else ''
-        listing = _engine_output(engine, '--list-langs')
+        listing_diagnostic = {}
+        listing = _engine_output(engine, '--list-langs', diagnostics=listing_diagnostic)
         lines = listing.splitlines()
         # Tesseract prints the actual tessdata directory in the first line.
         if not result['tessdata_path']:
@@ -265,12 +269,18 @@ def self_check(required_languages=('eng', 'chi_sim', 'osd')):
         missing = sorted(set(required_languages) - set(result['languages']))
         if missing:
             result['errors'].append('OCR 引擎无法使用语言数据：' + ', '.join(missing))
+            result['errors'].append('Tesseract --list-langs 原始诊断：' +
+                                    f"退出码={listing_diagnostic.get('returncode', '未记录')}；" +
+                                    f"stdout={listing_diagnostic.get('stdout', listing)!r}；" +
+                                    f"stderr={listing_diagnostic.get('stderr', '')!r}")
         for language in required_languages:
-            if language in result['languages']:
-                try:
-                    _check_language(engine, language)
-                except Exception as error:
-                    result['errors'].append(str(error))
+            # --list-langs may exit successfully with an empty list when its
+            # native directory API cannot open a Unicode path. Still attempt
+            # model initialization so the native stderr explains that failure.
+            try:
+                _check_language(engine, language)
+            except Exception as error:
+                result['errors'].append(str(error))
     except Exception as error:
         result['errors'].append(str(error))
     result['ok'] = not result['errors']

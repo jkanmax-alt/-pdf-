@@ -79,7 +79,8 @@ def main(report_path):
                 if errors:raise RuntimeError('GUI errors: '+repr(errors))
                 if any(r.get('state')=='失败' for r in app.regions):raise RuntimeError('OCR worker failed')
                 breakers=[r for r in app.rows if r.get('kind')=='微型断路器' and '16A/1P' in r.get('spec','')]
-                if not breakers:raise RuntimeError('No expected 16A/1P breaker recognized from the synthetic PDF')
+                if len(breakers)!=11:
+                    raise RuntimeError(f'Expected 11 independent 16A/1P breakers from the synthetic PDF, got {len(breakers)}')
                 report['recognized_expected_breakers']=len(breakers)
                 report['stages']['spawned_ocr_recognition']=True
                 output=Path(td)/'export.xlsx'

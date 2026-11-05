@@ -6,7 +6,7 @@
 2. 双击 `ElectricalQuoteV172.exe`。启动时界面会显示内置 OCR 引擎及语言数据的自检结果。
 3. 导入 PDF，执行自动分柜、识别元器件，然后导出 Excel。
 
-必须保留 EXE 旁边的整个 `_internal` 文件夹。无需安装 Python、Tesseract、语言包，亦无需设置系统 PATH。支持 Windows 10/11 x64；不支持 32 位 Windows。文档、PDF 和导出文件可以放在其他目录。绿色版以 EXE 所在位置查找资源，从快捷方式或其他工作目录启动也使用同一套内置 OCR。
+必须保留 EXE 旁边的整个 `_internal` 文件夹。无需安装 Python、Tesseract、语言包，亦无需设置系统 PATH。支持 Windows 10（1903 或更新版本）/11 x64；不支持 32 位 Windows。文档、PDF 和导出文件可以放在其他目录。绿色版以 EXE 所在位置查找资源，从快捷方式或其他工作目录启动也使用同一套内置 OCR。
 
 ```text
 ElectricalQuoteV172/
@@ -53,6 +53,7 @@ Compress-Archive -Path dist/ElectricalQuoteV172 -DestinationPath dist/Electrical
 
 - Windows 引擎：UB Mannheim Tesseract `5.4.0.20240606` 的原始 GitHub release 安装器。构建脚本验证 SHA256 `c885fff6998e0608ba4bb8ab51436e1c6775c2bafc2559a19b423e18678b60c9`，该值来自 Microsoft `winget-pkgs` 固定快照 `c98039ecea945dca5b368233b4011c5de70ee6ed` 的公开清单。
 - 语言数据：`tesseract-ocr/tessdata_fast` 的 `4.1.0` 对应提交 `65727574dfcd264acbb0c3e07860e4e9e9b22185`。`eng`、`chi_sim`、`osd` 各有固定 SHA256。
+- 为支持含中文的解压路径，准备脚本只为 `tesseract.exe` 嵌入 Windows `activeCodePage=UTF-8` 清单（Win10 1903+）。原引擎未含清单；若上游已有清单则保留其原始设置。代码、只读常量和数据节的 SHA256 在修改前后必须一致。原安装器仍按原始 SHA256 验证；原 EXE、补丁后 EXE 的 SHA256、嵌入清单全文及来源记录在 `BUNDLE-MANIFEST.json` 和 `third_party_licenses/TESSERACT-UTF8-MANIFEST.json`。修改元数据后的 EXE 不沿用上游原始数字签名。DLL、语言模型及识别算法不修改。
 - 安装器通过 7-Zip 提取，**不会运行安装程序、修改注册表或系统 PATH**。完整保留全部运行 DLL、文档、配置和上游许可；训练工具与安装器插件无需分发。
 - 准备阶段逐个审计 EXE 和 DLL：要求为 x64，所有非 Windows 系统 DLL 导入都必须在引擎目录内满足；在 Windows 上还会限制 PATH 执行引擎版本及三语言可用性检查。
 - 所有下载启用 HTTPS 证书校验；已有缓存仍须通过同一 SHA256 验证。固定来源、下载哈希、每个文件的哈希以及 DLL 闭包都记录在 `BUNDLE-MANIFEST.json`。

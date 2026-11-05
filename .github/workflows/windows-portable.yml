@@ -39,6 +39,10 @@ jobs:
           python -m unittest discover -s source -p "test_*.py" *> source-regressions.log
           $code = $LASTEXITCODE
           Get-Content source-regressions.log
+          if ($code -ne 0) { exit $code }
+          python -m unittest discover -s tools -p "test_prepare_tesseract_windows.py" *> manifest-tests.log
+          $code = $LASTEXITCODE
+          Get-Content manifest-tests.log
           exit $code
       - name: Prepare checked OCR engine, DLLs and languages
         run: |

@@ -130,6 +130,27 @@ class PortableRuntimeTests(unittest.TestCase):
         self.assertIn('missing DLL', result['errors'][0])
         lookup.assert_not_called()
 
+    def test_empty_successful_listing_keeps_stderr_and_probes_required_models(self):
+        self.bundle()
+        def engine_output(engine, option, diagnostics=None):
+            if option == '--version':
+                return 'tesseract 5.4.0'
+            output = 'List of available languages in "便携 测试/tessdata/" (0):'
+            diagnostics.update(returncode=0, stdout=output, stderr='Error opening Unicode directory')
+            return output
+        with self.frozen(), patch.object(runtime, '_engine_output', side_effect=engine_output), \
+             patch.object(runtime, '_check_language', side_effect=runtime.OCRRuntimeError('native model-load diagnostic')) as load:
+            result = runtime.self_check()
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['languages'], [])
+        detail = '\n'.join(result['errors'])
+        self.assertIn('退出码=0', detail)
+        self.assertIn('便携 测试/tessdata/', detail)
+        self.assertIn('stderr=', detail)
+        self.assertIn('Error opening Unicode directory', detail)
+        self.assertIn('native model-load diagnostic', detail)
+        self.assertEqual([call.args[1] for call in load.call_args_list], ['eng', 'chi_sim', 'osd'])
+
     def test_child_path_removes_python_dll_dir_without_editing_parent(self):
         bundle = self.bundle()
         with self.frozen():
