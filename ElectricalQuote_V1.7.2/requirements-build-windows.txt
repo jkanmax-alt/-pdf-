@@ -1,0 +1,14 @@
+# Windows x64 / CPython 3.11; includes all application dependencies.
+PyMuPDF==1.26.6
+Pillow==12.3.0
+pytesseract==0.3.13
+numpy==2.3.5
+opencv-python-headless==4.14.0.94
+openpyxl==3.1.5
+packaging==25.0
+et_xmlfile==2.0.0
+PyInstaller==6.16.0
+pyinstaller-hooks-contrib==2025.8
+altgraph==0.17.4
+pefile==2023.2.7
+pywin32-ctypes==0.2.3; sys_platform == "win32"

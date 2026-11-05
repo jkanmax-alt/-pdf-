@@ -9,9 +9,10 @@ from app import Main as PreviousMain
 from segmentation_v16 import detect_document
 from worker_v16 import run_one
 from core import aggregate,save_csv,save_xlsx,quote_preview,TYPES,normalize_recognition_row
+from ocr_runtime import self_check, writable_cache_dir
 
 BASE=Path(__file__).resolve().parent
-CACHE=BASE/'cache'
+CACHE=writable_cache_dir()
 SOURCES=('V1.5分柜识别',)
 
 class Main(PreviousMain):
@@ -19,16 +20,18 @@ class Main(PreviousMain):
   self.regions=[];self.active_region=None;self.events=queue.Queue();self.cancel_flag=threading.Event();self.busy=False;self.pool=None
   self.frame_edit=tk.BooleanVar(value=False);self.frame_drag=None;self.mark_row_idx=None
   self.missing_pdf_path='';self.project_pdf_sha256=''
+  self.ocr_check=None;self.ocr_check_running=False
   super().__init__(root)
   self.root.after(120,self.poll_events)
   self.root.after(350,self.initial_sash_width)
+  self.root.after(250,self.start_ocr_self_check)
 
  def build(self):
   self.root.title('电气图纸识别 V1.7.2 · 图框/位号与防雷支路识别');self.root.geometry('1580x940');self.root.minsize(1150,690)
   style=ttk.Style();style.theme_use('clam');style.configure('Treeview',rowheight=27,font=('Microsoft YaHei UI',10));style.configure('TButton',font=('Microsoft YaHei UI',10))
   header=tk.Frame(self.root,bg='#17324d');header.pack(side='top',fill='x')
   tk.Label(header,text='⚡ 电气图纸智能识别  V1.7.2',bg='#17324d',fg='white',font=('Microsoft YaHei UI',16,'bold')).pack(side='left',padx=16,pady=11)
-  for text,fn in [('打开PDF',self.open_pdf),('关联原PDF',self.reattach_pdf),('打开项目',self.open_project),('保存项目',self.save_project),('导出Excel',self.export_xlsx),('导出CSV',self.export_csv)]:
+  for text,fn in [('打开PDF',self.open_pdf),('关联原PDF',self.reattach_pdf),('打开项目',self.open_project),('保存项目',self.save_project),('导出Excel',self.export_xlsx),('导出CSV',self.export_csv),('OCR自检',self.check_ocr_environment)]:
    tk.Button(header,text=text,command=fn,bg='#eaf1f9',relief='flat',padx=10,pady=7).pack(side='left',padx=4)
   self.tabs=ttk.Panedwindow(self.root,orient='horizontal');self.tabs.pack(fill='both',expand=True,padx=6,pady=6)
   side=ttk.Frame(self.tabs,width=230);mid=ttk.Frame(self.tabs);right=ttk.Frame(self.tabs)
@@ -92,6 +95,37 @@ class Main(PreviousMain):
   ttk.Button(rules,text='计算建议',command=self.preview).pack(anchor='w',padx=8)
   self.rule_text=tk.Text(rules,height=4,wrap='word',bg='#f2f6fa',font=('Microsoft YaHei UI',9));self.rule_text.pack(fill='x',padx=8,pady=6)
   self.preview();self.status=ttk.Label(self.root,text='请打开整份PDF → 检测分柜 → 检查分割框 → 并行识别。',foreground='#33536e');self.status.pack(side='bottom',fill='x',padx=10,pady=4)
+  self.ocr_status=ttk.Label(self.root,text='OCR：正在检查内置引擎和语言数据…',foreground='#506980',wraplength=1450);self.ocr_status.pack(side='bottom',fill='x',padx=10,pady=2)
+
+ def start_ocr_self_check(self):
+  if self.ocr_check_running:return
+  self.ocr_check_running=True
+  def check():
+   result=self_check()
+   self.events.put(('ocr_check',result))
+  threading.Thread(target=check,daemon=True,name='ocr-startup-check').start()
+
+ def show_ocr_status(self,result):
+  self.ocr_check=result;self.ocr_check_running=False
+  if result['ok']:
+   origin='内置' if result['bundled'] else '开发环境'
+   text=f"OCR：{origin}引擎可用 · {result['version']} · 语言：{', '.join(result['languages'])}"
+   self.ocr_status.configure(text=text,foreground='#247044')
+  else:
+   self.ocr_status.configure(text='OCR 自检失败：'+'；'.join(result['errors'])+'（点击“OCR自检”查看详情）',foreground='#b3261e')
+
+ def check_ocr_environment(self):
+  if not self.ocr_check:
+   self.start_ocr_self_check()
+   return messagebox.showinfo('OCR自检','正在检查 OCR 引擎和语言数据，结果将显示在窗口底部。')
+  result=self.ocr_check
+  details=['内置引擎：'+('是' if result['bundled'] else '否（源码开发环境）'),
+           '引擎：'+str(result['engine_path'] or '未找到'),
+           '语言目录：'+str(result['tessdata_path'] or '未找到'),
+           '版本：'+(result['version'] or '无法读取'),
+           '可用语言：'+(', '.join(result['languages']) or '无')]
+  if result['ok']:messagebox.showinfo('OCR自检','\n'.join(details)+'\n\nOCR 引擎和语言数据可用。')
+  else:messagebox.showwarning('OCR自检','\n'.join(details)+'\n\n需要处理：\n'+'\n'.join(result['errors']))
 
 
  def on_toggle_frame_edit(self):
@@ -437,7 +471,8 @@ class Main(PreviousMain):
   try:
    while True:
     event=self.events.get_nowait()
-    if event[0]=='result':self.receive_result(event[1])
+    if event[0]=='ocr_check':self.show_ocr_status(event[1])
+    elif event[0]=='result':self.receive_result(event[1])
     elif event[0]=='failed':
      rid,err=event[1:];r=next((r for r in self.regions if r['id']==rid),None)
      if r:r['state']='失败';self.render_regions()
@@ -613,6 +648,29 @@ class Main(PreviousMain):
   if self.doc:self.doc.close()
   self.root.destroy()
 
+def main(argv=None):
+ import argparse
+ parser=argparse.ArgumentParser(description='ElectricalQuote V1.7.2')
+ mode=parser.add_mutually_exclusive_group()
+ mode.add_argument('--self-check',action='store_true',help='检查 OCR 引擎并返回 JSON')
+ mode.add_argument('--portable-smoke-test',action='store_true',help='运行绿色版集成验证')
+ parser.add_argument('--self-check-output',type=Path,help='OCR 自检 JSON 文件路径')
+ parser.add_argument('--report',type=Path,default=Path('portable-smoke-report.json'),help='集成验证 JSON 文件路径')
+ args=parser.parse_args(argv)
+ if args.self_check:
+  result=self_check()
+  payload=json.dumps(result,ensure_ascii=False,indent=2)
+  if args.self_check_output:
+   output=args.self_check_output.expanduser().resolve();output.parent.mkdir(parents=True,exist_ok=True)
+   output.write_text(payload+'\n',encoding='utf-8')
+  if sys.stdout is not None:print(payload)
+  return 0 if result['ok'] else 1
+ if args.portable_smoke_test:
+  from portable_smoke_test import main as run_smoke_test
+  return run_smoke_test(args.report.expanduser().resolve())
+ root=tk.Tk();Main(root);root.mainloop()
+ return 0
+
 if __name__=='__main__':
  multiprocessing.freeze_support()
- root=tk.Tk();Main(root);root.mainloop()
+ sys.exit(main())

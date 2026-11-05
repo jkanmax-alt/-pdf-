@@ -9,6 +9,8 @@ import re
 
 def recognize_vfd_candidates(img, page, cabinet, source='变频图纸专项候选'):
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     w,h=img.size
     if 'VFD' not in cabinet.upper():
         return []

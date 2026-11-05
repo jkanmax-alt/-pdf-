@@ -10,6 +10,8 @@ RATING = re.compile(r'(MCCB|MCB|RCBO|DSL)[-_\s]*(?:TM[-_\s]*)?([BCD])?[-_\s]*(\d
 
 def recognize_incoming(img, page=1, cabinet='待确认柜号', source='进线独立识别'):
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     w,h=img.size
     # The inlet branch in this drawing family is generally placed left of the feeder column.
     # Text labels on outgoing breakers start near 0.27-0.35 W.

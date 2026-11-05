@@ -8,3 +8,6 @@ dist/
 /samples/
 /reference_private/
 *.zip
+!/source/ElectricalQuote.spec
+/vendor/
+/tools/.download-cache/

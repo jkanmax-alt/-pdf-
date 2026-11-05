@@ -7,6 +7,8 @@ from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 
 def _ocr_crop(img, box, psm=7, binary=False):
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     w,h=img.size
     x0,y0,x1,y1=box
     crop=img.crop((max(0,int(x0)),max(0,int(y0)),min(w,int(x1)),min(h,int(y1))))
@@ -61,6 +63,8 @@ def _set_locations(rec, boxes, kind, confidence, note, W, H):
 def _text_box(img, keywords, zone, reference=None):
     """OCR position hint only, never used to invent devices."""
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     w,h=img.size
     crop=img.crop(tuple(map(int,zone)))
     scale=2

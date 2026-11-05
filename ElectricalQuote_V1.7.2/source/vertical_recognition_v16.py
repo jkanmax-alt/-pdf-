@@ -65,6 +65,8 @@ def _breakers_from_text(text):
 
 def recognize_vertical(img,page=1,cabinet='待确认柜号'):
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     w,h=img.size
     cols,geo=find_vertical_columns(img)
     if not cols:

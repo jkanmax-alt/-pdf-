@@ -1,11 +1,35 @@
 @echo off
 setlocal
-cd /d "%~dp0"
-if not exist ".venv\Scripts\python.exe" (echo First run install_windows.bat & pause & exit /b 1)
-".venv\Scripts\python.exe" -m pip install pyinstaller
-if errorlevel 1 (echo PyInstaller installation failed & pause & exit /b 1)
-".venv\Scripts\python.exe" -m PyInstaller --noconfirm --clean --onedir --windowed --name ElectricalQuoteV172 --collect-all openpyxl --hidden-import electrical_symbols --hidden-import core --hidden-import recognition_v14 --hidden-import segmentation_v15 --hidden-import segmentation_v16 --hidden-import worker_v16 --hidden-import feeder_geometry_v152 --hidden-import incoming_v153 --hidden-import compact_v153 --hidden-import motor_v153 --hidden-import orientation_v16 --hidden-import vertical_recognition_v16 --hidden-import surge_recognition_v17 --hidden-import precise_locator_v161 app_v16.py
-if errorlevel 1 (echo EXE build failed & pause & exit /b 1)
-echo Output folder: dist\ElectricalQuoteV172
+cd /d "%~dp0.."
+set "EQ_PYTHON=%~dp0.venv\Scripts\python.exe"
+if not exist "%EQ_PYTHON%" (
+    py -3.11 -m venv "%~dp0.venv"
+    if errorlevel 1 goto :failed
+)
+"%EQ_PYTHON%" -c "import struct,sys; assert sys.platform == 'win32' and struct.calcsize('P') == 8, 'Windows x64 Python is required'"
+if errorlevel 1 goto :failed
+"%EQ_PYTHON%" -m pip install -r requirements-build-windows.txt
+if errorlevel 1 goto :failed
+if exist "vendor\tesseract\BUNDLE-MANIFEST.json" (
+    "%EQ_PYTHON%" tools\prepare_tesseract_windows.py --verify-only
+) else (
+    "%EQ_PYTHON%" tools\prepare_tesseract_windows.py
+)
+if errorlevel 1 goto :failed
+"%EQ_PYTHON%" -m PyInstaller --clean --noconfirm source\ElectricalQuote.spec
+if errorlevel 1 goto :failed
+copy /y "PORTABLE_WINDOWS.md" "dist\ElectricalQuoteV172\PORTABLE_WINDOWS.md" >nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; Compress-Archive -Path 'dist\ElectricalQuoteV172' -DestinationPath 'dist\ElectricalQuoteV172-Windows-x64-portable.zip' -Force"
+if errorlevel 1 goto :failed
+echo.
+echo Portable folder: %CD%\dist\ElectricalQuoteV172
+echo Distribution ZIP: %CD%\dist\ElectricalQuoteV172-Windows-x64-portable.zip
+echo Keep ElectricalQuoteV172.exe and the entire _internal directory together.
 pause
-endlocal
+exit /b 0
+:failed
+echo.
+echo Build failed. Read the error above; no incomplete build should be distributed.
+echo See PORTABLE_WINDOWS.md for build prerequisites and validation.
+pause
+exit /b 1

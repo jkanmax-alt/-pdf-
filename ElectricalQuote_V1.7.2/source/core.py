@@ -218,13 +218,8 @@ def save_xlsx(path,rows,preview=None):
 
 
 def locate_tesseract():
-    import pytesseract, shutil
-    candidates=[shutil.which('tesseract'),r'C:\Program Files\Tesseract-OCR\tesseract.exe',r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe']
-    for candidate in candidates:
-        if candidate and os.path.isfile(candidate):
-            pytesseract.pytesseract.tesseract_cmd=candidate
-            return candidate
-    return None
+    from ocr_runtime import locate_tesseract as locate_runtime
+    return locate_runtime()
 
 def ocr_image(img):
     import pytesseract

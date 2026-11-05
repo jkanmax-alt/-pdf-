@@ -65,6 +65,8 @@ def run_one(args):
         # Do not hallucinate it: use actual OCR evidence and keep unconfirmed.
         if any(r['kind']=='浪涌后备保护器' for r in rows) and not any(r['kind']=='浪涌保护器' for r in rows):
             import pytesseract
+            from ocr_runtime import initialize_ocr
+            initialize_ocr()
             sample=img.crop((int(img.width*.24),int(img.height*.81),int(img.width*.63),int(img.height*.96)))
             raw=pytesseract.image_to_string(sample.resize((sample.width*2,sample.height*2)),lang='eng',config='--psm 6')
             if __import__('re').search(r'8\s*/\s*20|Imax\s*=|SPD',raw,__import__('re').I):

@@ -84,6 +84,8 @@ def _cabinet_name_from_header(image):
     """
     try:
         import pytesseract
+        from ocr_runtime import initialize_ocr
+        initialize_ocr()
         text=pytesseract.image_to_string(image,lang='eng',config='--psm 6')
         text=text.upper().replace('—','-').replace('–','-').replace('~','-')
         # Prefer the actual CABLE NO. The feeder's upstream source may have

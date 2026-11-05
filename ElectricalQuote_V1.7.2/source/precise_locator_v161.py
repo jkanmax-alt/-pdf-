@@ -34,6 +34,8 @@ def locate_observed_printed_labels(img, rows, turns, unrotate_box):
     Old region-guess boxes are intentionally dropped.
     """
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     search_zones={}
     # Only original glyph-detection / native PDF frames survive the policy change.
     for row in rows:

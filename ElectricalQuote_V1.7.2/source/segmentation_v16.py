@@ -126,6 +126,8 @@ def detect_document(pdf_path,recognize_names=True):
 def _read_header(img):
     """Read both numeric cabinet ids (XinYongLian) and 1ACP1/1KT1 style."""
     import re,pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     # Read the title/CABLE NO separately before upstream breaker legends can
     # introduce a different cabinet number. Enlarge fine CAD outline lettering.
     normalized=img.resize((img.width*2,img.height*2))

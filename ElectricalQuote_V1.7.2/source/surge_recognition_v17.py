@@ -81,6 +81,8 @@ def _detect_t_glyph(image, bbox):
     Return (type, source_bbox) in panel image pixels or ('',None).
     """
     import numpy as np, cv2, pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     x0,y0,x1,y1=map(int,bbox)
     crop=image.crop((x0,y0,x1,y1)).convert('L')
     a=np.asarray(crop)
@@ -246,6 +248,8 @@ def _merge_existing(existing, observed, kind):
 def recognize_surge(image, rows, page, cabinet):
     """Read each lower-branch SCB/SPD entity separately; preserve unresolved counts."""
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     w,h=image.size
     feeders=[r for r in rows if r.get('record_role')=='feeder']
     ys=sorted(float(r.get('_anchor_corrected_y',r.get('pdf_rel_y',0))) for r in feeders)

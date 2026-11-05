@@ -1,0 +1,150 @@
+name: Windows portable EXE
+
+on:
+  push:
+    branches: [fix/electricalquote-v1.7.1]
+    paths:
+      - 'ElectricalQuote_V1.7.2/**'
+      - '.github/workflows/windows-portable.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ElectricalQuote_V1.7.2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: x64
+      - name: Install build dependencies
+        run: python -m pip install -r requirements-build-windows.txt
+      - name: Verify source regressions
+        run: |
+          python -m unittest discover -s source -p "test_*fixes.py"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s source -p "test_ocr_runtime.py"
+      - name: Prepare checked OCR engine, DLLs and languages
+        run: python tools/prepare_tesseract_windows.py --output vendor/tesseract
+      - name: Build complete onedir EXE
+        run: python -m PyInstaller --clean --noconfirm source/ElectricalQuote.spec
+      - name: Archive complete distribution
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force deliverable | Out-Null
+          Copy-Item PORTABLE_WINDOWS.md dist/ElectricalQuoteV172/PORTABLE_WINDOWS.md
+          $zip = 'deliverable/ElectricalQuote_V1.7.2_Windows_x64_Portable.zip'
+          Compress-Archive -Path 'dist/ElectricalQuoteV172' -DestinationPath $zip -CompressionLevel Optimal
+          (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + '  ' + (Split-Path $zip -Leaf) | Set-Content ($zip + '.sha256')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable-candidate
+          path: ElectricalQuote_V1.7.2/deliverable/*
+          retention-days: 14
+
+  verify:
+    needs: build
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-portable-candidate
+          path: incoming
+      - name: Test relocated EXE with Python and system OCR unavailable on PATH
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = (Resolve-Path incoming/ElectricalQuote_V1.7.2_Windows_x64_Portable.zip).Path
+          $testRoot = Join-Path $env:RUNNER_TEMP '便携 测试'
+          New-Item -ItemType Directory -Force $testRoot | Out-Null
+          Expand-Archive $archive -DestinationPath $testRoot
+          $reportRoot = Join-Path $env:GITHUB_WORKSPACE 'reports'
+          New-Item -ItemType Directory -Force $reportRoot | Out-Null
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          foreach ($name in @('PYTHONHOME','PYTHONPATH','TESSDATA_PREFIX','TESSERACT_CMD')) {
+            Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+          }
+          $env:PYTHONNOUSERSITE = '1'
+          if (Get-Command python.exe -ErrorAction SilentlyContinue) { throw 'Python is still on the isolated PATH' }
+          if (Get-Command tesseract.exe -ErrorAction SilentlyContinue) { throw 'System OCR is still on the isolated PATH' }
+          function Run-Check($exe, $flag, $output, $cwd) {
+            $outputOption = if ($flag -eq '--self-check') { '--self-check-output' } else { '--report' }
+            $p = Start-Process -FilePath $exe -ArgumentList @($flag,$outputOption,"`"$output`"") -WorkingDirectory $cwd -PassThru
+            if (-not $p.WaitForExit(300000)) { $p.Kill($true); throw "EXE timed out: $flag" }
+            $p.WaitForExit()
+            $p.Refresh()
+            if ($p.ExitCode -ne 0) { throw "EXE failed: $flag, exit $($p.ExitCode)" }
+            if (-not (Test-Path $output)) { throw "Missing check report: $output" }
+            $result = Get-Content $output -Raw -Encoding utf8 | ConvertFrom-Json
+            if (-not $result.ok) { throw "EXE report did not pass: $output" }
+            if ($flag -eq '--self-check' -and -not $result.bundled) { throw 'Self-check used nonbundled OCR' }
+            if ($flag -ne '--self-check' -and -not $result.frozen) { throw 'Test did not run the frozen EXE' }
+          }
+          $folder = Join-Path $testRoot 'ElectricalQuoteV172'
+          $exe = Join-Path $folder 'ElectricalQuoteV172.exe'
+          $unrelated = Join-Path $testRoot '另外的 启动目录'
+          New-Item -ItemType Directory -Force $unrelated | Out-Null
+          Run-Check $exe '--self-check' (Join-Path $reportRoot 'ocr-first.json') $unrelated
+          Run-Check $exe '--portable-smoke-test' (Join-Path $reportRoot 'e2e-first.json') $unrelated
+          $moved = Join-Path $testRoot '移动后的 完整软件'
+          Move-Item $folder $moved
+          $exe = Join-Path $moved 'ElectricalQuoteV172.exe'
+          Run-Check $exe '--self-check' (Join-Path $reportRoot 'ocr-moved.json') $env:TEMP
+          Run-Check $exe '--portable-smoke-test' (Join-Path $reportRoot 'e2e-moved.json') $env:TEMP
+          @{
+            runner = 'fresh GitHub-hosted Windows Server 2022 x64 VM'
+            clean_process_path = $env:PATH
+            scope = 'Python/system Tesseract not on PATH; build environment not reused. Runner image may contain preinstalled Python on disk.'
+            relocated = $true
+          } | ConvertTo-Json | Set-Content (Join-Path $reportRoot 'test-environment.json') -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-portable-test-reports
+          path: reports/
+          retention-days: 14
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-portable-candidate
+          path: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-portable-test-reports
+          path: reports
+      - name: Publish tested portable ZIP and reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          zip -j release/Windows_Portable_Test_Reports.zip reports/*.json
+          cat > notes.md <<'EOF'
+          V1.7.2 Windows x64 onedir portable distribution, including Tesseract and eng/chi_sim/osd data.
+
+          Download the complete `ElectricalQuote_V1.7.2_Windows_x64_Portable.zip`; extract the entire folder and run `ElectricalQuoteV172.exe`. Do not copy the EXE alone.
+
+          Tested on a separate fresh Windows Server 2022 VM with Python/system Tesseract removed from the test process PATH. GUI startup, generated PDF import, automatic segmentation, spawned OCR recognition and Excel export passed before and after moving the folder to a Unicode/spaced path. The hosted runner image may still contain Python on disk; this is not a claim that it was uninstalled from the OS. Reports are attached. No customer drawings or historical quotation data are included.
+          EOF
+          gh release create "portable-v1.7.2-r${{ github.run_number }}" release/* --target "$GITHUB_SHA" --title "ElectricalQuote V1.7.2 Windows portable (run ${{ github.run_number }})" --notes-file notes.md --prerelease

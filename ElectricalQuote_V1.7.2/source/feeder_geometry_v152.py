@@ -103,6 +103,8 @@ def read_drawn_tags(image,lines,groups=None):
     Duplicate predictions are blanked rather than falsely moved to a neighbor.
     """
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     from PIL import ImageEnhance,ImageOps
     tags=['']*len(lines);warnings=[]
     col=find_tag_column(image,lines)

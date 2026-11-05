@@ -10,6 +10,8 @@ R=re.compile(r'\b(MCCB|MCB|RCBO)\s*[-_:=]*\s*(?:TM\s*[-_]*)?\s*([BCD])?\s*(\d{1,
 
 def recognize_compact(img,page,source,cabinet='待确认柜号'):
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     w,h=img.size
     if w/h<1.1:return [],{'mode':'fallback','feeders':0,'reason':'非横向简图，等待专业回路识别'}
     # Single OCR on the feeder device-label column, where cable models are excluded.

@@ -104,6 +104,8 @@ class Main:
    details.append('Tesseract引擎: '+(path or '未找到'))
    if path:
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     details.append('Tesseract版本: '+str(pytesseract.get_tesseract_version()))
    else: errors.append('Tesseract未找到')
   except Exception as e: errors.append(str(e))

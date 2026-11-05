@@ -11,6 +11,8 @@ import fitz
 
 def _ocr(page, box, psm=7, scale=5):
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     from PIL import Image, ImageOps
     box=fitz.Rect(box)&page.rect
     if box.is_empty:return ''

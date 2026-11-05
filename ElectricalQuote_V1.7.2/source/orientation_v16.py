@@ -37,6 +37,8 @@ def detect_rotation(img,override='自动'):
         try:k=(int(override)//90)%4;return k,{'rotation':k*90,'reason':'人工指定','confidence':'人工'}
         except (ValueError,TypeError):pass
     import pytesseract
+    from ocr_runtime import initialize_ocr
+    initialize_ocr()
     from PIL import ImageOps
     ranked=[]
     for k in range(4):
