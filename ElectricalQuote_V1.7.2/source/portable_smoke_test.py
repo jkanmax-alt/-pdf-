@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 import traceback
+from contextlib import ExitStack
 from unittest.mock import patch
 
 
@@ -32,6 +33,14 @@ def make_test_pdf(path):
         page.insert_text((575,y-9),'MOTOR',fontsize=8)
         page.insert_text((645,y-9),'1kW',fontsize=8)
     doc.save(path);doc.close()
+
+
+def close_document(app):
+    # Windows keeps an open MuPDF file locked. Close it before TemporaryDirectory
+    # removes the drawing, including on assertion/export failures.
+    if app is not None and app.doc is not None:
+        app.doc.close()
+        app.doc=None
 
 
 def main(report_path):
@@ -64,8 +73,9 @@ def main(report_path):
              patch('tkinter.messagebox.askyesno',return_value=True):
             root=tk.Tk();app=Main(root);root.update()
             report['stages']['gui_startup']=True
-            with tempfile.TemporaryDirectory(prefix='ElectricalQuote-smoke-') as td:
+            with tempfile.TemporaryDirectory(prefix='ElectricalQuote-smoke-') as td, ExitStack() as cleanup:
                 drawing=Path(td)/'synthetic.pdf';make_test_pdf(drawing)
+                cleanup.callback(close_document,app)
                 if not app.load_pdf(drawing):raise RuntimeError('GUI could not import generated PDF')
                 report['stages']['pdf_import']=True
                 app.detect_regions();root.update()
@@ -98,8 +108,7 @@ def main(report_path):
     except Exception:
         report['error']=traceback.format_exc()
     finally:
-        if app and app.doc:
-            app.doc.close();app.doc=None
+        close_document(app)
         if root:
             try:root.destroy()
             except Exception:pass
